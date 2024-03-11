@@ -1,0 +1,13 @@
+mysql:
+  host: 127.0.0.1
+  port: 3306
+  user: sqlfs
+  password: 123456
+  db: sqlfs
+
+pprof:
+  cpu_pprof_file: ./cpu.pprof
+  mem_pprof_file: ./mem.pprof
+
+fuse:
+  ttl: 3s
