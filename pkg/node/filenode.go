@@ -16,6 +16,7 @@ type FileNode struct {
 	fs.Inode
 	root    *FileNode
 	PK      int64
+	Parent  *FileNode
 	Content string
 	NewConn func() sqlx.SqlConn
 }
@@ -33,29 +34,34 @@ func (fn *FileNode) OnAdd(ctx context.Context) {
 			return
 		}
 
-		if file.Type != "dirctory" {
+		if file.Type != "directory" {
 			return
 		}
 	}
-
-	files, errno := readdir(ctx, fn.root, fn.PK)
-	if errno != 0 {
-		log.Printf("mode add error")
+	files, err := fm.GetChildrenByParentId(ctx, fn.PK)
+	if err != nil {
+		log.Println("get children error: ", err)
 		return
 	}
-	node := fn.EmbeddedInode()
-	for files.HasNext() {
-		entry, errno := files.Next()
-		if errno != 0 {
-			log.Printf("files next error")
-		}
-		ch := node.GetChild(entry.Name)
+	for _, file := range files {
+		ch := fn.GetChild(file.Name)
 		if ch == nil {
-			ch = node.NewPersistentInode(ctx, &FileNode{root: fn.root, PK: int64(entry.Ino - 10000), NewConn: fn.NewConn}, fs.StableAttr{Ino: entry.Ino, Mode: entry.Mode})
-			node.AddChild(entry.Name, ch, false)
+			var mode uint32
+			if file.Type == "directory" {
+				mode = fuse.S_IFDIR
+			} else {
+				mode = fuse.S_IFREG
+			}
+			ch := fn.NewPersistentInode(ctx, &FileNode{
+				root:    fn.root,
+				PK:      file.Id,
+				NewConn: fn.NewConn,
+				Content: file.Content.String,
+				Parent:  fn,
+			}, fs.StableAttr{Ino: uint64(file.Id + 10000), Mode: mode})
+			fn.AddChild(file.Name, ch, false)
 		}
 	}
-	files.Close()
 
 }
 
@@ -83,10 +89,40 @@ func (fn *FileNode) Read(ctx context.Context, f fs.FileHandle, dest []byte, off 
 }
 
 func (fn *FileNode) Readdir(ctx context.Context) (fs.DirStream, syscall.Errno) {
-	return readdir(ctx, fn.root, fn.PK)
+	return readdir(ctx, fn)
 }
 
 func (fn *FileNode) Getattr(ctx context.Context, fh fs.FileHandle, out *fuse.AttrOut) syscall.Errno {
 	out.Mode = 0755
+	out.Size = uint64(len(fn.Content))
 	return 0
+}
+
+func (fn *FileNode) Lookup1(ctx context.Context, name string, out *fuse.EntryOut) (*fs.Inode, syscall.Errno) {
+	conn := fn.Root().NewConn()
+	fm := file.NewFileModel(conn)
+	dentry, err := fm.FindOneByParentDirName(ctx, fn.PK, name)
+	if err != nil {
+		return &fs.Inode{}, syscall.ENOENT
+	}
+	st := syscall.Stat_t{}
+	if dentry.Type == "directory" {
+		st.Mode = fuse.S_IFDIR
+	} else {
+		st.Mode = fuse.S_IFREG
+		st.Size = int64(len(dentry.Content.String))
+	}
+
+	out.Attr.FromStat(&st)
+
+	ch := fn.Inode.NewPersistentInode(ctx, &FileNode{
+		root:    fn.root,
+		PK:      dentry.Id,
+		NewConn: fn.NewConn,
+		Parent:  fn,
+	},
+		fs.StableAttr{Ino: uint64(dentry.Id + 10000), Mode: st.Mode},
+	)
+	return ch, 0
+
 }

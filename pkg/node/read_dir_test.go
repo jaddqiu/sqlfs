@@ -23,7 +23,7 @@ func ExampleReaddir() {
 		NewConn: f,
 	}
 
-	fs, errno := readdir(context.Background(), root, 0)
+	fs, errno := readdir(context.Background(), root)
 	if errno != 0 {
 		fmt.Println("readdir error")
 	}

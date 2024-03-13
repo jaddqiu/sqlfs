@@ -12,6 +12,7 @@ func NewSQLFS(f func() sqlx.SqlConn) (fs.InodeEmbedder, error) {
 		Content: "",
 	}
 	root.root = root
+	root.Parent = root
 
 	return root, nil
 }

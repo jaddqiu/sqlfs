@@ -43,13 +43,26 @@ func (ds *FileStream) HasNext() bool {
 }
 
 // readdir: return file list in the directory
-func readdir(ctx context.Context, root *FileNode, parentId int64) (fs.DirStream, syscall.Errno) {
-	fm := file.NewFileModel(root.NewConn())
-	files, err := fm.GetChildrenByParentId(ctx, parentId)
+func readdir(ctx context.Context, dir *FileNode) (fs.DirStream, syscall.Errno) {
+	defaultFiles := []*file.File{
+		{
+			Id:   dir.PK,
+			Name: ".",
+			Type: "directory",
+		},
+		{
+			Id:   dir.Parent.PK,
+			Name: "..",
+			Type: "directory",
+		},
+	}
+
+	fm := file.NewFileModel(dir.NewConn())
+	files, err := fm.GetChildrenByParentId(ctx, dir.PK)
 	if err != nil {
 		return nil, syscall.EIO
 	}
-
+	files = append(defaultFiles, files...)
 	return &FileStream{
 		files: files,
 		index: 0,
