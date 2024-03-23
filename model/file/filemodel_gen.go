@@ -17,8 +17,8 @@ import (
 var (
 	fileFieldNames          = builder.RawFieldNames(&File{})
 	fileRows                = strings.Join(fileFieldNames, ",")
-	fileRowsExpectAutoSet   = strings.Join(stringx.Remove(fileFieldNames, "`id`", "`create_at`", "`create_time`", "`created_at`", "`update_at`", "`update_time`", "`updated_at`"), ",")
-	fileRowsWithPlaceHolder = strings.Join(stringx.Remove(fileFieldNames, "`id`", "`create_at`", "`create_time`", "`created_at`", "`update_at`", "`update_time`", "`updated_at`"), "=?,") + "=?"
+	fileRowsExpectAutoSet   = strings.Join(stringx.Remove(fileFieldNames, "`id`", "`create_time`"), ",")
+	fileRowsWithPlaceHolder = strings.Join(stringx.Remove(fileFieldNames, "`id`", "`create_time`"), "=?,") + "=?"
 )
 
 type (
@@ -36,11 +36,14 @@ type (
 	}
 
 	File struct {
-		Id         int64          `db:"id"`          // primary key
-		Name       string         `db:"name"`        // 文件名
-		Type       string         `db:"type"`        // 文件类型
-		ParentDir  int64          `db:"parent_dir"`  // 父目录id
-		Content    sql.NullString `db:"content"`     // 文件内容
+		Id         int64          `db:"id"`         // primary key
+		Name       string         `db:"name"`       // 文件名
+		Type       string         `db:"type"`       // 文件类型
+		ParentDir  int64          `db:"parent_dir"` // 父目录id
+		Content    sql.NullString `db:"content"`    // 文件内容
+		Uid        int64          `db:"uid"`
+		Gid        int64          `db:"gid"`
+		Mode       int64          `db:"mode"`
 		CreateTime time.Time      `db:"create_time"` // 创建时间
 		UpdateTime time.Time      `db:"update_time"` // 更新时间
 	}
@@ -88,14 +91,14 @@ func (m *defaultFileModel) FindOneByParentDirName(ctx context.Context, parentDir
 }
 
 func (m *defaultFileModel) Insert(ctx context.Context, data *File) (sql.Result, error) {
-	query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?)", m.table, fileRowsExpectAutoSet)
-	ret, err := m.conn.ExecCtx(ctx, query, data.Name, data.Type, data.ParentDir, data.Content)
+	query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?, ?, ?, ?, ?)", m.table, fileRowsExpectAutoSet)
+	ret, err := m.conn.ExecCtx(ctx, query, data.Name, data.Type, data.ParentDir, data.Content, data.Uid, data.Gid, data.Mode, data.UpdateTime)
 	return ret, err
 }
 
 func (m *defaultFileModel) Update(ctx context.Context, newData *File) error {
 	query := fmt.Sprintf("update %s set %s where `id` = ?", m.table, fileRowsWithPlaceHolder)
-	_, err := m.conn.ExecCtx(ctx, query, newData.Name, newData.Type, newData.ParentDir, newData.Content, newData.Id)
+	_, err := m.conn.ExecCtx(ctx, query, newData.Name, newData.Type, newData.ParentDir, newData.Content, newData.Uid, newData.Gid, newData.Mode, newData.UpdateTime, newData.Id)
 	return err
 }
 
