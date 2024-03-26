@@ -377,7 +377,7 @@ func (fn *FileNode) Rename(ctx context.Context, name string, newParent fs.InodeE
 	}
 
 	newParentFn := newParent.(*FileNode)
-	targetFile, err := fm.FindOneByParentDirName(context.Background(), fn.PK, name)
+	targetFile, err := fm.FindOneByParentDirName(context.Background(), newParentFn.PK, newName)
 	switch err {
 	case nil:
 		e := fm.Delete(context.Background(), targetFile.Id)
