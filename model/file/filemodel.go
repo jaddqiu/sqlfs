@@ -51,14 +51,17 @@ func (f *File) InodeId() uint64 {
 
 func (f *File) Attr() fuse.Attr {
 	var mode uint32
+	var size uint64
 	if f.Type == "directory" {
-		mode = fuse.S_IFDIR
+		mode = uint32(f.Mode | fuse.S_IFDIR)
+		size = 4096
 	} else {
-		mode = fuse.S_IFREG
+		mode = uint32(f.Mode | fuse.S_IFREG)
+		size = uint64(len(f.Content.String))
 	}
 	return fuse.Attr{
 		Ino:   f.InodeId(),
-		Size:  uint64(len(f.Content.String)),
+		Size:  size,
 		Mode:  mode,
 		Atime: uint64(f.CreateTime.Unix()),
 		Ctime: uint64(f.CreateTime.Unix()),

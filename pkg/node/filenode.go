@@ -316,7 +316,7 @@ func (fn *FileNode) Mkdir(ctx context.Context, name string, mode uint32, out *fu
 	conn := fn.Root().NewConn()
 	fm := file.NewFileModel(conn)
 
-	_, err := fm.FindOneByParentDirName(context.Background(), fn.PK, name)
+	_, err := fm.FindOneByParentDirName(ctx, fn.PK, name)
 	switch err {
 	case sql.ErrNoRows:
 	default:
@@ -335,7 +335,7 @@ func (fn *FileNode) Mkdir(ctx context.Context, name string, mode uint32, out *fu
 		Name:       name,
 		Type:       "directory",
 		ParentDir:  fn.PK,
-		Mode:       int64(mode & 0777),
+		Mode:       int64(mode | fuse.S_IFDIR),
 		CreateTime: time.Now(),
 		UpdateTime: time.Now(),
 	}
@@ -351,9 +351,9 @@ func (fn *FileNode) Mkdir(ctx context.Context, name string, mode uint32, out *fu
 		return nil, syscall.EIO
 	}
 
-	node := child.EmbeddedInode()
 	out.NodeId = uint64(child.PK)
 	out.Attr = f.Attr()
+	node := fn.EmbeddedInode().NewInode(ctx, child, fs.StableAttr{Mode: mode | fuse.S_IFDIR, Ino: f.InodeId(), Gen: 1})
 	return node, 0
 }
 
