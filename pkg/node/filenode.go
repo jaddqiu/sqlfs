@@ -165,7 +165,7 @@ func (fn *FileNode) Create(ctx context.Context, name string, flags uint32, mode 
 		Name:       name,
 		Type:       "file",
 		ParentDir:  fn.PK,
-		Mode:       int64(mode & 0777),
+		Mode:       int64(mode | fuse.S_IFREG),
 		CreateTime: time.Now(),
 		UpdateTime: time.Now(),
 	}
@@ -185,9 +185,9 @@ func (fn *FileNode) Create(ctx context.Context, name string, flags uint32, mode 
 		return
 	}
 
-	node = child.EmbeddedInode()
 	out.NodeId = uint64(child.PK)
 	out.Attr = f.Attr()
+	node = fn.EmbeddedInode().NewInode(ctx, child, fs.StableAttr{Mode: mode | fuse.S_IFREG, Ino: f.InodeId(), Gen: 1})
 
 	return
 }
